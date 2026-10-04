@@ -3024,7 +3024,7 @@ ${rows}
   URL.revokeObjectURL(url);
 }
 
-export default App  useEffect(() => {
+useEffect(() => {
     if (!projectsQuery.data) return;
     setProjects(projectsQuery.data.map((project: any) => ({
       id: String(project.id),
@@ -5710,5 +5710,7 @@ ${rows}
 
   URL.revokeObjectURL(url);
 }
+
+export default App;
 
 export default App;
