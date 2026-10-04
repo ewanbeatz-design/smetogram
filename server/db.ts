@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, User, estimateCategories, estimateItems, projectMembers, projects, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -16,18 +17,58 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
 }
 export async function getUserByOpenId(openId: string) { const db = await getDb(); if (!db) return undefined; const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1); return result[0]; }
-export async function loginLocalUser(email: string, name?: string) {
-  const normalizedEmail = email.trim().toLowerCase();
-  if (!normalizedEmail) throw new Error("Email is required");
-  const openId = `local:${normalizedEmail}`;
-  await upsertUser({
+function normalizeLocalEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+export function hashLocalPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return `scrypt:${salt}:${hash}`;
+}
+
+export function verifyLocalPassword(password: string, stored: string) {
+  const parts = stored.split(":");
+  if (parts.length !== 3 || parts[0] !== "scrypt") return false;
+  const [, salt, expectedHex] = parts;
+  const actual = scryptSync(password, salt, 64);
+  const expected = Buffer.from(expectedHex, "hex");
+  return expected.length === actual.length && timingSafeEqual(actual, expected);
+}
+
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const normalizedEmail = normalizeLocalEmail(email);
+  const result = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
+  return result[0];
+}
+
+export async function registerLocalUser(input: { name: string; email: string; passwordHash: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const email = normalizeLocalEmail(input.email);
+  const existing = await getUserByEmail(email);
+  if (existing) throw new Error("Пользователь с таким email уже зарегистрирован");
+  const openId = `local:${email}`;
+  await db.insert(users).values({
     openId,
-    email: normalizedEmail,
-    name: name?.trim() || normalizedEmail.split("@")[0],
+    name: input.name.trim(),
+    email,
+    passwordHash: input.passwordHash,
     loginMethod: "local",
     lastSignedIn: new Date(),
   });
   return getUserByOpenId(openId);
+}
+
+export async function loginLocalUser(email: string, password: string) {
+  const user = await getUserByEmail(email);
+  if (!user || !user.passwordHash || !verifyLocalPassword(password, user.passwordHash)) {
+    throw new Error("Неверный email или пароль");
+  }
+  await upsertUser({ openId: user.openId, lastSignedIn: new Date() });
+  return getUserByOpenId(user.openId);
 }
 
 export async function listProjects(ownerId: number) { const db = await getDb(); if (!db) return []; const rows = await db.select().from(projects).where(eq(projects.ownerId, ownerId)).orderBy(desc(projects.updatedAt)); return Promise.all(rows.map(async (project) => ({ ...project, estimate: await listEstimate(project.id) }))); }
