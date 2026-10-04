@@ -651,3 +651,9 @@ body { background:#FBFAFC; color:#172554; }.sidebar { background:#F8FAFC; border
 @keyframes auth-spin{to{transform:rotate(360deg)}}
 .profile-copy{min-width:0;flex:1}.profile-copy span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}.profile-logout{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;background:transparent;color:#aaa79e}.profile-logout:hover{background:#ebe8e0;color:var(--terra)}
 @media(max-width:760px){.auth-card{padding:30px 24px;border-radius:20px}.auth-brand{margin-bottom:38px}.auth-card h1{font-size:31px}}
+
+.auth-field{display:block;color:#6f6d67;font-size:11px;font-weight:700;margin:0 0 12px}
+.auth-field input{width:100%;margin-top:7px;border:1px solid #ded9d0;background:#fff;border-radius:10px;padding:12px 13px;font:inherit;color:#252521;outline:none;box-sizing:border-box}
+.auth-field input:focus{border-color:#b9b0a4;box-shadow:0 0 0 3px #b9b0a414}
+.auth-login-button:disabled{opacity:.6;cursor:wait;transform:none}
+.auth-error{margin-top:12px;padding:10px 12px;border-radius:9px;background:#fff0ed;color:#a33b29;font-size:11px}
