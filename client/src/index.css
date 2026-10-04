@@ -632,3 +632,25 @@ body { background:#FBFAFC; color:#172554; }.sidebar { background:#F8FAFC; border
     right: 12px;
   }
 }
+
+.normative-empty {
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  color: #858880;
+  text-align: center;
+  border-top: 1px solid #ecece8;
+}
+
+.normative-empty strong {
+  color: #30332e;
+  font-size: 14px;
+}
+
+.normative-empty span {
+  font-size: 12px;
+}
