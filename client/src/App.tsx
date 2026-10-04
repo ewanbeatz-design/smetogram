@@ -2131,7 +2131,7 @@ function EstimateGroup({
                       : current,
                 ),
               });
-
+              persistItem(group, updated);
               setEditing(null);
             }}
             onDelete={() =>
