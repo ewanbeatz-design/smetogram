@@ -6,7 +6,7 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { ENV } from "./_core/env";
 import { listEntitlements } from "./billing";
-import { addEstimateCategory, addEstimateItem, createProject, deleteEstimateItem, getEstimateCategoryForUser, getEstimateItemForUser, getProjectForUser, inviteProjectMember, listEstimate, listMembers, listProjects, replaceEstimate, updateEstimateItem, updateProject } from "./db";
+import { loginLocalUser, addEstimateCategory, addEstimateItem, createProject, deleteEstimateItem, getEstimateCategoryForUser, getEstimateItemForUser, getProjectForUser, inviteProjectMember, listEstimate, listMembers, listProjects, replaceEstimate, updateEstimateItem, updateProject } from "./db";
 
 const projectIdInput = z.object({ projectId: z.number().int().positive() });
 const statusSchema = z.enum(["draft", "in_progress", "review", "completed", "archived"]);
@@ -15,6 +15,20 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    localLogin: publicProcedure
+      .input(z.object({ email: z.string().email(), name: z.string().max(120).optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const user = await loginLocalUser(input.email, input.name);
+        if (!user) throw new Error("Unable to create local user");
+        const sessionToken = await (await import("./_core/sdk")).sdk.createSessionToken(user.openId, {
+          name: user.name || user.email || "",
+        });
+        ctx.res.cookie(COOKIE_NAME, sessionToken, {
+          ...getSessionCookieOptions(ctx.req),
+          maxAge: 1000 * 60 * 60 * 24 * 365,
+        });
+        return user;
+      }),
     logout: publicProcedure.mutation(({ ctx }) => { const cookieOptions = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 }); return { success: true } as const; }),
   }),
   projects: router({
