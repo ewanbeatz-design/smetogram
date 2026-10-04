@@ -6,7 +6,7 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { ENV } from "./_core/env";
 import { listEntitlements } from "./billing";
-import { loginLocalUser, addEstimateCategory, addEstimateItem, createProject, deleteEstimateItem, getEstimateCategoryForUser, getEstimateItemForUser, getProjectForUser, inviteProjectMember, listEstimate, listMembers, listProjects, replaceEstimate, updateEstimateItem, updateProject } from "./db";
+import { hashLocalPassword, loginLocalUser, registerLocalUser, addEstimateCategory, addEstimateItem, createProject, deleteEstimateItem, getEstimateCategoryForUser, getEstimateItemForUser, getProjectForUser, inviteProjectMember, listEstimate, listMembers, listProjects, replaceEstimate, updateEstimateItem, updateProject } from "./db";
 
 const projectIdInput = z.object({ projectId: z.number().int().positive() });
 const statusSchema = z.enum(["draft", "in_progress", "review", "completed", "archived"]);
@@ -15,11 +15,36 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
-    localLogin: publicProcedure
-      .input(z.object({ email: z.string().email(), name: z.string().max(120).optional() }))
+    register: publicProcedure
+      .input(z.object({
+        name: z.string().trim().min(2, "Введите имя").max(120),
+        email: z.string().email("Введите корректный email"),
+        password: z.string().min(6, "Пароль должен быть не короче 6 символов").max(128),
+      }))
       .mutation(async ({ ctx, input }) => {
-        const user = await loginLocalUser(input.email, input.name);
-        if (!user) throw new Error("Unable to create local user");
+        const user = await registerLocalUser({
+          name: input.name,
+          email: input.email,
+          passwordHash: hashLocalPassword(input.password),
+        });
+        if (!user) throw new Error("Не удалось создать пользователя");
+        const sessionToken = await (await import("./_core/sdk")).sdk.createSessionToken(user.openId, {
+          name: user.name || user.email || "",
+        });
+        ctx.res.cookie(COOKIE_NAME, sessionToken, {
+          ...getSessionCookieOptions(ctx.req),
+          maxAge: 1000 * 60 * 60 * 24 * 365,
+        });
+        return user;
+      }),
+    login: publicProcedure
+      .input(z.object({
+        email: z.string().email("Введите корректный email"),
+        password: z.string().min(1, "Введите пароль").max(128),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const user = await loginLocalUser(input.email, input.password);
+        if (!user) throw new Error("Не удалось выполнить вход");
         const sessionToken = await (await import("./_core/sdk")).sdk.createSessionToken(user.openId, {
           name: user.name || user.email || "",
         });
