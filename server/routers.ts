@@ -6,12 +6,20 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { ENV } from "./_core/env";
 import { listEntitlements } from "./billing";
+import { searchEstimateCatalog } from "./services/catalogService";
 import { addEstimateCategory, addEstimateItem, createProject, deleteEstimateItem, getEstimateCategoryForUser, getEstimateItemForUser, getProjectForUser, inviteProjectMember, listEstimate, listMembers, listProjects, updateEstimateItem, updateProject } from "./db";
 
 const projectIdInput = z.object({ projectId: z.number().int().positive() });
 const statusSchema = z.enum(["draft", "in_progress", "review", "completed", "archived"]);
 
 export const appRouter = router({
+  catalog: router({
+    search: publicProcedure.input(z.object({
+      base: z.enum(["ФЕР", "ТЕР", "ГЭСН"]),
+      query: z.string().max(120).optional(),
+      limit: z.number().int().min(1).max(100).optional(),
+    })).query(({ input }) => searchEstimateCatalog(input)),
+  }),
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
