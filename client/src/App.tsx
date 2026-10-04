@@ -2134,12 +2134,12 @@ function EstimateGroup({
               persistItem(group, updated);
               setEditing(null);
             }}
-            onDelete={() =>
-              onDeleteItem(
-                group,
-                item.id,
-              )
-            }
+            onDelete={() => {
+              onDeleteItem(group, item.id);
+              if (/^\d+$/.test(item.id)) {
+                deleteItemMutation.mutate({ itemId: Number(item.id) });
+              }
+            }}
           />
         ))}
 
