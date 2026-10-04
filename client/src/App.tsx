@@ -503,12 +503,10 @@ function App() {
       setActiveId(project.id);
       setView("estimate");
 
-      await replaceEstimateMutation.mutateAsync({
+      const saved: any = await replaceEstimateMutation.mutateAsync({
         projectId: Number(project.id),
         groups: [{ name: "Новая категория", sortOrder: 0, items: [] }],
       });
-
-      const saved = await trpc.estimates.list.fetch({ projectId: Number(project.id) });
       setProjects((current) => current.map(item =>
         item.id === project.id
           ? { ...item, estimate: (saved || []).map((group: any) => ({
