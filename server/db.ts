@@ -17,7 +17,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 }
 export async function getUserByOpenId(openId: string) { const db = await getDb(); if (!db) return undefined; const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1); return result[0]; }
 
-export async function listProjects(ownerId: number) { const db = await getDb(); if (!db) return []; return db.select().from(projects).where(eq(projects.ownerId, ownerId)).orderBy(desc(projects.updatedAt)); }
+export async function listProjects(ownerId: number) { const db = await getDb(); if (!db) return []; const rows = await db.select().from(projects).where(eq(projects.ownerId, ownerId)).orderBy(desc(projects.updatedAt)); return Promise.all(rows.map(async (project) => ({ ...project, estimate: await listEstimate(project.id) }))); }
 export async function getProjectForUser(projectId: number, userId: number) {
   const db = await getDb(); if (!db) return undefined;
   const owned = await db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.ownerId, userId))).limit(1);
@@ -62,6 +62,25 @@ export async function getEstimateCategoryForUser(categoryId: number, userId: num
     .where(and(eq(estimateCategories.id, categoryId), eq(projects.ownerId, userId)))
     .limit(1);
   return rows[0]?.category;
+}
+
+export async function replaceEstimate(projectId: number, ownerId: number, groups: Array<{ name: string; sortOrder: number; items: Array<{ name: string; quantity: string; unit: string; price: string; source?: "manual" | "pdf" | "scan" | "ai" }> }>) {
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  const project = await getProjectForUser(projectId, ownerId);
+  if (!project) throw new Error("Project not found");
+  const categories = await db.select({ id: estimateCategories.id }).from(estimateCategories).where(eq(estimateCategories.projectId, projectId));
+  if (categories.length) {
+    await db.delete(estimateItems).where(inArray(estimateItems.categoryId, categories.map((category) => category.id)));
+    await db.delete(estimateCategories).where(eq(estimateCategories.projectId, projectId));
+  }
+  for (const [index, group] of groups.entries()) {
+    const categoryResult = await db.insert(estimateCategories).values({ projectId, name: group.name, sortOrder: group.sortOrder ?? index });
+    const categoryId = Number(categoryResult[0].insertId);
+    if (group.items.length) {
+      await db.insert(estimateItems).values(group.items.map(item => ({ categoryId, name: item.name, quantity: item.quantity, unit: item.unit, price: item.price, source: item.source ?? "manual" })));
+    }
+  }
+  return listEstimate(projectId);
 }
 
 export async function addEstimateCategory(projectId: number, name: string) { const db = await getDb(); if (!db) throw new Error("Database is not available"); const result = await db.insert(estimateCategories).values({ projectId, name }); return (await db.select().from(estimateCategories).where(eq(estimateCategories.id, Number(result[0].insertId))).limit(1))[0]; }
