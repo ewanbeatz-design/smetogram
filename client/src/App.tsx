@@ -274,7 +274,7 @@ function LoginScreen() { return <div className="auth-screen"><div className="aut
 function getInitials(value: string) { const parts = value.trim().split(/\s+/).filter(Boolean); if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase(); return value.slice(0, 2).toUpperCase(); }
 
 function AuthenticatedApp({ user, logout }: { user: any; logout: () => Promise<void> }) {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[]>(() => {
     try {
       const saved = localStorage.getItem("smetogram-projects");
 
