@@ -656,4 +656,5 @@ body { background:#FBFAFC; color:#172554; }.sidebar { background:#F8FAFC; border
 .auth-field input{width:100%;margin-top:7px;border:1px solid #ded9d0;background:#fff;border-radius:10px;padding:12px 13px;font:inherit;color:#252521;outline:none;box-sizing:border-box}
 .auth-field input:focus{border-color:#b9b0a4;box-shadow:0 0 0 3px #b9b0a414}
 .auth-login-button:disabled{opacity:.6;cursor:wait;transform:none}
+.auth-switch{display:block;width:100%;margin-top:14px;border:0;background:transparent;color:#6f6d67;font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:8px}.auth-switch:hover{text-decoration:underline}
 .auth-error{margin-top:12px;padding:10px 12px;border-radius:9px;background:#fff0ed;color:#a33b29;font-size:11px}
