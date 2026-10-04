@@ -16,6 +16,19 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
 }
 export async function getUserByOpenId(openId: string) { const db = await getDb(); if (!db) return undefined; const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1); return result[0]; }
+export async function loginLocalUser(email: string, name?: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) throw new Error("Email is required");
+  const openId = `local:${normalizedEmail}`;
+  await upsertUser({
+    openId,
+    email: normalizedEmail,
+    name: name?.trim() || normalizedEmail.split("@")[0],
+    loginMethod: "local",
+    lastSignedIn: new Date(),
+  });
+  return getUserByOpenId(openId);
+}
 
 export async function listProjects(ownerId: number) { const db = await getDb(); if (!db) return []; const rows = await db.select().from(projects).where(eq(projects.ownerId, ownerId)).orderBy(desc(projects.updatedAt)); return Promise.all(rows.map(async (project) => ({ ...project, estimate: await listEstimate(project.id) }))); }
 export async function getProjectForUser(projectId: number, userId: number) {
