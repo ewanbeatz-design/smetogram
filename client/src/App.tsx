@@ -1511,6 +1511,40 @@ function EstimateView({
   const [custom, setCustom] =
     useState(1);
 
+  const estimateQuery = trpc.estimates.list.useQuery(
+    { projectId: Number(project.id) },
+    { enabled: /^\d+$/.test(project.id) },
+  );
+
+  const addCategoryMutation = trpc.estimates.addCategory.useMutation();
+  const addItemMutation = trpc.estimates.addItem.useMutation();
+  const updateItemMutation = trpc.estimates.updateItem.useMutation();
+  const deleteItemMutation = trpc.estimates.deleteItem.useMutation();
+
+  const persistItem = (group: EstimateGroup, item: EstimateItem) => {
+    if (!/^\d+$/.test(project.id)) return;
+    const category = (estimateQuery.data ?? []).find((c: any) => c.name === group.name);
+    if (!category) return;
+    if (/^\d+$/.test(item.id)) {
+      updateItemMutation.mutate({
+        itemId: Number(item.id),
+        name: item.name,
+        quantity: String(item.qty),
+        unit: item.unit,
+        price: String(item.price),
+      });
+    } else {
+      addItemMutation.mutate({
+        categoryId: category.id,
+        name: item.name,
+        quantity: String(item.qty),
+        unit: item.unit,
+        price: String(item.price),
+        source: "manual",
+      });
+    }
+  };
+
   const overhead = direct * 0.15;
   const profit = direct * 0.08;
 
