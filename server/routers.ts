@@ -6,7 +6,7 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { ENV } from "./_core/env";
 import { listEntitlements } from "./billing";
-import { addEstimateCategory, addEstimateItem, createProject, deleteEstimateItem, getEstimateCategoryForUser, getEstimateItemForUser, getProjectForUser, inviteProjectMember, listEstimate, listMembers, listProjects, updateEstimateItem, updateProject } from "./db";
+import { addEstimateCategory, addEstimateItem, createProject, deleteEstimateItem, getEstimateCategoryForUser, getEstimateItemForUser, getProjectForUser, inviteProjectMember, listEstimate, listMembers, listProjects, replaceEstimate, updateEstimateItem, updateProject } from "./db";
 
 const projectIdInput = z.object({ projectId: z.number().int().positive() });
 const statusSchema = z.enum(["draft", "in_progress", "review", "completed", "archived"]);
@@ -31,6 +31,10 @@ export const appRouter = router({
   }),
   estimates: router({
     list: protectedProcedure.input(projectIdInput).query(async ({ ctx, input }) => { if (!await getProjectForUser(input.projectId, ctx.user.id)) throw new Error("Project not found"); return listEstimate(input.projectId); }),
+    replace: protectedProcedure.input(projectIdInput.extend({ groups: z.array(z.object({ name: z.string().min(1), sortOrder: z.number().int().nonnegative().optional(), items: z.array(z.object({ name: z.string().min(1), quantity: z.string(), unit: z.string().min(1), price: z.string(), source: z.enum(["manual", "pdf", "scan", "ai"]).optional() })) }) })).mutation(async ({ ctx, input }) => {
+      if (!await getProjectForUser(input.projectId, ctx.user.id)) throw new Error("Project not found");
+      return replaceEstimate(input.projectId, ctx.user.id, input.groups);
+    }),
     addCategory: protectedProcedure.input(projectIdInput.extend({ name: z.string().min(1) })).mutation(async ({ ctx, input }) => { if (!await getProjectForUser(input.projectId, ctx.user.id)) throw new Error("Project not found"); return addEstimateCategory(input.projectId, input.name); }),
     addItem: protectedProcedure.input(z.object({ categoryId: z.number().int().positive(), name: z.string().min(1), quantity: z.string(), unit: z.string().min(1), price: z.string(), source: z.enum(["manual", "pdf", "scan", "ai"]).optional() })).mutation(async ({ ctx, input }) => {
       if (!await getEstimateCategoryForUser(input.categoryId, ctx.user.id)) throw new Error("Category not found");
