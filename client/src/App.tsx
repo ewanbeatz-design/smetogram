@@ -18,6 +18,7 @@ import {
   FolderKanban,
   Home,
   LayoutGrid,
+  LogOut,
   Menu,
   MoreHorizontal,
   Plus,
@@ -31,6 +32,8 @@ import {
 } from "lucide-react";
 import { WorkspaceModules, type Module } from "./components/WorkspaceModules";
 import { trpc } from "./lib/trpc";
+import { startLogin } from "./const";
+import { useAuth } from "./_core/hooks/useAuth";
 import "./index.css";
 
 type Status = "В работе" | "На согласовании" | "Завершён";
@@ -259,7 +262,17 @@ const initialNotifications: Notification[] = [
   },
 ];
 
+function getInitials(value: string) { const parts = value.trim().split(/\s+/).filter(Boolean); if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase(); return value.slice(0, 2).toUpperCase(); }
+
+function AuthLoadingScreen() { return <div className="auth-screen"><div className="auth-card"><img src="/smetogram-logo.png" alt="Сметограм" className="auth-logo" /><div className="auth-spinner" /><p>Проверяем авторизацию…</p></div></div>; }
+
+function LoginScreen() { return <div className="auth-screen"><div className="auth-card"><div className="auth-brand"><img src="/smetogram-logo.png" alt="Сметограм" className="auth-logo" /><span>сметограм</span></div><div className="auth-eyebrow">РАБОЧЕЕ ПРОСТРАНСТВО</div><h1>Сметы без хаоса.</h1><p className="auth-description">Войдите, чтобы создавать проекты, вести сметы и работать с командой в одном пространстве.</p><button type="button" className="auth-login-button" onClick={startLogin}>Войти в Сметограм <ArrowUpRight size={18} /></button><div className="auth-note">Без пароля — вход через защищённую авторизацию.</div></div></div>; }
+
 function App() {
+  const { user, loading: authLoading, isAuthenticated, logout } = useAuth();
+  if (authLoading) return <AuthLoadingScreen />;
+  if (!isAuthenticated) return <LoginScreen />;
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
 
@@ -717,17 +730,14 @@ function App() {
         </nav>
 
         <div className="profile">
-          <div className="avatar">АК</div>
-
-          <div>
-            <strong>Алексей Ковалёв</strong>
-            <span>Прораб</span>
+          <div className="avatar">{getInitials(user?.name || user?.email || "Пользователь")}</div>
+          <div className="profile-copy">
+            <strong>{user?.name || "Пользователь"}</strong>
+            <span>{user?.email || "Аккаунт"}</span>
           </div>
-
-          <MoreHorizontal
-            size={18}
-            className="muted-icon"
-          />
+          <button type="button" className="profile-logout" onClick={() => void logout()} title="Выйти" aria-label="Выйти">
+            <LogOut size={16} />
+          </button>
         </div>
       </aside>
 
