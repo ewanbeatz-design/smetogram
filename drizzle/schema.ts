@@ -27,6 +27,10 @@ export const users = mysqlTable("users", {
     length: 320,
   }),
 
+  passwordHash: varchar("passwordHash", {
+    length: 255,
+  }),
+
   loginMethod: varchar("loginMethod", {
     length: 64,
   }),
