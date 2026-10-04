@@ -29,6 +29,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { trpc } from "./lib/trpc";
 import { WorkspaceModules, type Module } from "./components/WorkspaceModules";
 import "./index.css";
 
@@ -2220,54 +2221,26 @@ function NormativePicker({
   onClose: () => void;
   onAdd: (item: EstimateItem) => void;
 }) {
-  const [base, setBase] = useState("ФЕР");
+  const [base, setBase] = useState<"ФЕР" | "ТЕР" | "ГЭСН">("ФЕР");
   const [query, setQuery] = useState("");
 
-  const rates = [
-    {
-      code: "ФЕР 11-01-001-01",
-      name: "Укладка ламината",
-      unit: "м²",
-      price: 1250,
-    },
-    {
-      code: "ФЕР 15-04-005-04",
-      name: "Штукатурка стен",
-      unit: "м²",
-      price: 920,
-    },
-    {
-      code: "ГЭСН 08-02-410-01",
-      name: "Монтаж розетки",
-      unit: "шт",
-      price: 480,
-    },
-    {
-      code: "ТЕР 06-01-001-03",
-      name: "Устройство стяжки пола",
-      unit: "м²",
-      price: 780,
-    },
-  ].filter((rate) =>
-    `${rate.code} ${rate.name}`
-      .toLowerCase()
-      .includes(query.toLowerCase()),
+  const catalogQuery = trpc.catalog.search.useQuery(
+    { base, query, limit: 50 },
+    { staleTime: 30_000 },
   );
+
+  const rates = catalogQuery.data ?? [];
 
   return (
     <div className="modal-backdrop">
       <div className="normative-modal">
         <div className="modal-heading">
           <div>
-            <div className="eyebrow">
-              НОРМАТИВНАЯ БАЗА
-            </div>
-
+            <div className="eyebrow">КАТАЛОГ СМЕТОГРАМА</div>
             <h2>Добавить расценку</h2>
-
             <p>
-              Каталог подключаемых ФЕР/ТЕР/ГЭСН;
-              цены требуют проверки региона.
+              Единый каталог работ. База ФЕР/ТЕР/ГЭСН фиксируется
+              в добавленной позиции.
             </p>
           </div>
 
@@ -2275,58 +2248,60 @@ function NormativePicker({
             type="button"
             className="icon-button"
             onClick={onClose}
+            aria-label="Закрыть"
           >
             <X size={18} />
           </button>
         </div>
 
         <div className="normative-tabs">
-          {["ФЕР", "ТЕР", "ГЭСН"].map(
-            (item) => (
-              <button
-                type="button"
-                className={
-                  base === item
-                    ? "active"
-                    : ""
-                }
-                onClick={() =>
-                  setBase(item)
-                }
-                key={item}
-              >
-                {item}
-              </button>
-            ),
-          )}
+          {(["ФЕР", "ТЕР", "ГЭСН"] as const).map((item) => (
+            <button
+              type="button"
+              className={base === item ? "active" : ""}
+              onClick={() => setBase(item)}
+              key={item}
+            >
+              {item}
+            </button>
+          ))}
         </div>
 
         <input
           className="normative-search"
           value={query}
-          onChange={(event) =>
-            setQuery(event.target.value)
-          }
-          placeholder="Поиск по шифру или наименованию"
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Поиск по категории, работе или единице"
         />
 
+        {catalogQuery.isLoading && (
+          <div className="normative-empty">Загружаем каталог…</div>
+        )}
+
+        {catalogQuery.isError && (
+          <div className="normative-empty">
+            <strong>Не удалось загрузить каталог</strong>
+            <span>Попробуйте ещё раз через несколько секунд.</span>
+          </div>
+        )}
+
+        {!catalogQuery.isLoading && !catalogQuery.isError && rates.length === 0 && (
+          <div className="normative-empty">
+            <strong>Ничего не найдено</strong>
+            <span>Измените поисковый запрос.</span>
+          </div>
+        )}
+
         {rates.map((rate) => (
-          <div
-            className="normative-row"
-            key={rate.code}
-          >
+          <div className="normative-row" key={rate.id}>
             <div>
               <strong>{rate.name}</strong>
-
               <span>
-                {rate.code} · {base} ·{" "}
-                {rate.unit}
+                {rate.category} · {rate.base} · {rate.unit}
               </span>
             </div>
 
-            <b>
-              {money.format(rate.price)} ₽
-            </b>
+            <b>{money.format(rate.totalPrice)} ₽</b>
 
             <button
               type="button"
@@ -2337,8 +2312,8 @@ function NormativePicker({
                   name: rate.name,
                   qty: 1,
                   unit: rate.unit,
-                  price: rate.price,
-                  normative: rate.code,
+                  price: rate.totalPrice,
+                  normative: rate.id,
                   kind: "work",
                 })
               }
