@@ -271,24 +271,156 @@ function App() {
 function AuthLoadingScreen() { return <div className="auth-screen"><div className="auth-card"><img src="/smetogram-logo.png" alt="Сметограм" className="auth-logo" /><div className="auth-spinner" /><p>Проверяем авторизацию…</p></div></div>; }
 function LoginScreen() {
   const utils = trpc.useUtils();
-  const loginMutation = trpc.auth.localLogin.useMutation({
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordRepeat, setPasswordRepeat] = useState("");
+
+  const loginMutation = trpc.auth.login.useMutation({
     onSuccess: async () => {
       await utils.auth.me.invalidate();
     },
   });
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+
+  const registerMutation = trpc.auth.register.useMutation({
+    onSuccess: async () => {
+      await utils.auth.me.invalidate();
+    },
+  });
+
+  const mutation = mode === "login" ? loginMutation : registerMutation;
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!email.trim()) return;
+
+    if (mode === "register") {
+      if (password !== passwordRepeat) {
+        return;
+      }
+      void registerMutation.mutateAsync({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+      });
+      return;
+    }
+
     void loginMutation.mutateAsync({
       email: email.trim(),
-      name: name.trim() || undefined,
+      password,
     });
   };
 
-  return <div className="auth-screen"><form className="auth-card" onSubmit={submit}><div className="auth-brand"><img src="/smetogram-logo.png" alt="Сметограм" className="auth-logo" /><span>сметограм</span></div><div className="auth-eyebrow">ЛОКАЛЬНОЕ РАБОЧЕЕ ПРОСТРАНСТВО</div><h1>Сметы без хаоса.</h1><p className="auth-description">Введите email — создадим ваш аккаунт и сохраним проекты в базе Сметограма.</p><label className="auth-field">Имя<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Иван" /></label><label className="auth-field">Email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label><button type="submit" className="auth-login-button" disabled={loginMutation.isPending}>{loginMutation.isPending ? "Входим…" : "Войти в Сметограм"} <ArrowUpRight size={18} /></button>{loginMutation.error ? <div className="auth-error">{loginMutation.error.message}</div> : null}<div className="auth-note">Для локальной версии пароль не требуется.</div></form></div>;
+  const switchMode = () => {
+    setMode((current) => current === "login" ? "register" : "login");
+    loginMutation.reset();
+    registerMutation.reset();
+  };
+
+  return (
+    <div className="auth-screen">
+      <form className="auth-card" onSubmit={submit}>
+        <div className="auth-brand">
+          <img src="/smetogram-logo.png" alt="Сметограм" className="auth-logo" />
+          <span>сметограм</span>
+        </div>
+
+        <div className="auth-eyebrow">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+
+        <h1>{mode === "login" ? "С возвращением." : "Создайте аккаунт."}</h1>
+
+        <p className="auth-description">
+          {mode === "login"
+            ? "Войдите, чтобы продолжить работу со своими сметами и проектами."
+            : "Зарегистрируйтесь — проекты и сметы будут сохраняться в базе Сметограма."}
+        </p>
+
+        {mode === "register" ? (
+          <label className="auth-field">
+            Имя
+            <input
+              required
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Иван"
+              autoComplete="name"
+            />
+          </label>
+        ) : null}
+
+        <label className="auth-field">
+          Email
+          <input
+            required
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            autoComplete="email"
+          />
+        </label>
+
+        <label className="auth-field">
+          Пароль
+          <input
+            required
+            type="password"
+            minLength={6}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Минимум 6 символов"
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+          />
+        </label>
+
+        {mode === "register" ? (
+          <label className="auth-field">
+            Повторите пароль
+            <input
+              required
+              type="password"
+              minLength={6}
+              value={passwordRepeat}
+              onChange={(event) => setPasswordRepeat(event.target.value)}
+              placeholder="Повторите пароль"
+              autoComplete="new-password"
+            />
+          </label>
+        ) : null}
+
+        {mode === "register" && password && passwordRepeat && password !== passwordRepeat ? (
+          <div className="auth-error">Пароли не совпадают.</div>
+        ) : null}
+
+        {mutation.error ? (
+          <div className="auth-error">{mutation.error.message}</div>
+        ) : null}
+
+        <button
+          type="submit"
+          className="auth-login-button"
+          disabled={
+            mutation.isPending ||
+            (mode === "register" && password !== passwordRepeat)
+          }
+        >
+          {mutation.isPending
+            ? "Подождите…"
+            : mode === "login"
+              ? "Войти в Сметограм"
+              : "Создать аккаунт"}
+          <ArrowUpRight size={18} />
+        </button>
+
+        <button type="button" className="auth-switch" onClick={switchMode}>
+          {mode === "login"
+            ? "Нет аккаунта? Зарегистрироваться"
+            : "Уже есть аккаунт? Войти"}
+        </button>
+      </form>
+    </div>
+  );
 }
 function getInitials(value: string) { const parts = value.trim().split(/\s+/).filter(Boolean); if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase(); return value.slice(0, 2).toUpperCase(); }
 
