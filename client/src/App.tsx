@@ -32,7 +32,6 @@ import {
 } from "lucide-react";
 import { WorkspaceModules, type Module } from "./components/WorkspaceModules";
 import { trpc } from "./lib/trpc";
-import { startLogin } from "./const";
 import { useAuth } from "./_core/hooks/useAuth";
 import "./index.css";
 
@@ -270,7 +269,27 @@ function App() {
 }
 
 function AuthLoadingScreen() { return <div className="auth-screen"><div className="auth-card"><img src="/smetogram-logo.png" alt="Сметограм" className="auth-logo" /><div className="auth-spinner" /><p>Проверяем авторизацию…</p></div></div>; }
-function LoginScreen() { return <div className="auth-screen"><div className="auth-card"><div className="auth-brand"><img src="/smetogram-logo.png" alt="Сметограм" className="auth-logo" /><span>сметограм</span></div><div className="auth-eyebrow">РАБОЧЕЕ ПРОСТРАНСТВО</div><h1>Сметы без хаоса.</h1><p className="auth-description">Войдите, чтобы создавать проекты, вести сметы и работать с командой в одном пространстве.</p><button type="button" className="auth-login-button" onClick={startLogin}>Войти в Сметограм <ArrowUpRight size={18} /></button><div className="auth-note">Без пароля — вход через защищённую авторизацию.</div></div></div>; }
+function LoginScreen() {
+  const utils = trpc.useUtils();
+  const loginMutation = trpc.auth.localLogin.useMutation({
+    onSuccess: async () => {
+      await utils.auth.me.invalidate();
+    },
+  });
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!email.trim()) return;
+    void loginMutation.mutateAsync({
+      email: email.trim(),
+      name: name.trim() || undefined,
+    });
+  };
+
+  return <div className="auth-screen"><form className="auth-card" onSubmit={submit}><div className="auth-brand"><img src="/smetogram-logo.png" alt="Сметограм" className="auth-logo" /><span>сметограм</span></div><div className="auth-eyebrow">ЛОКАЛЬНОЕ РАБОЧЕЕ ПРОСТРАНСТВО</div><h1>Сметы без хаоса.</h1><p className="auth-description">Введите email — создадим ваш аккаунт и сохраним проекты в базе Сметограма.</p><label className="auth-field">Имя<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Иван" /></label><label className="auth-field">Email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label><button type="submit" className="auth-login-button" disabled={loginMutation.isPending}>{loginMutation.isPending ? "Входим…" : "Войти в Сметограм"} <ArrowUpRight size={18} /></button>{loginMutation.error ? <div className="auth-error">{loginMutation.error.message}</div> : null}<div className="auth-note">Для локальной версии пароль не требуется.</div></form></div>;
+}
 function getInitials(value: string) { const parts = value.trim().split(/\s+/).filter(Boolean); if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase(); return value.slice(0, 2).toUpperCase(); }
 
 function AuthenticatedApp({ user, logout }: { user: any; logout: () => Promise<void> }) {
